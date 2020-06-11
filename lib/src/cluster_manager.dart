@@ -3,7 +3,6 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:google_maps_cluster_manager/google_maps_cluster_manager.dart';
 import 'package:google_maps_cluster_manager/src/cluster_item.dart';
-import 'package:google_maps_cluster_manager/src/utils/extensions.dart';
 import 'package:google_maps_cluster_manager/src/utils/boudaries.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
@@ -12,9 +11,9 @@ class ClusterManager<T> {
       {Future<Marker> Function(Cluster<T>) markerBuilder,
       this.levels = const [1, 3.5, 5, 8.25, 11.5, 14.5, 16, 16.5, 20],
       this.extraPercent = 0.2,
-      this.initialZoom = 5.0})
+      this.initialZoom = 5.0,
+      this.maxZoomLevel = 13.0})
       : this.markerBuilder = markerBuilder ?? _basicMarkerBuilder;
-
   // Method to build markers
   final Future<Marker> Function(Cluster<T>) markerBuilder;
 
@@ -28,6 +27,7 @@ class ClusterManager<T> {
   final double extraPercent;
 
   final double initialZoom;
+  final double maxZoomLevel;
 
   // Google Maps constroller
   GoogleMapController _mapController;
@@ -38,6 +38,7 @@ class ClusterManager<T> {
 
   // Last known zoom
   double get _currentZoom => _zoom ?? initialZoom;
+  GoogleMapController get controller => _mapController;
   double _zoom;
 
   void setMapController(GoogleMapController controller,
@@ -87,16 +88,11 @@ class ClusterManager<T> {
         latLngBounds.northeast.longitude, latLngBounds.southwest.longitude);
 
     List<ClusterItem<T>> visibleItems = items.where((i) {
-      bool latQuery = i.location.latitude >=
-              latitudeBoundaries.min.removePercentage(extraPercent) &&
-          i.location.latitude <=
-              latitudeBoundaries.max.addPercentage(extraPercent);
+      bool latQuery = i.location.latitude >= latitudeBoundaries.min &&
+          i.location.latitude <= latitudeBoundaries.max;
 
-      bool longQuery = i.location.longitude >=
-              longitudeBoundaries.min.removePercentage(extraPercent) &&
-          i.location.longitude <=
-              longitudeBoundaries.max.addPercentage(extraPercent);
-
+      bool longQuery = i.location.longitude >= longitudeBoundaries.min &&
+          i.location.longitude <= longitudeBoundaries.max;
       return latQuery && longQuery;
     }).toList();
 
@@ -109,6 +105,7 @@ class ClusterManager<T> {
   }
 
   int _findLevel(List<double> levels) {
+    if (_currentZoom > maxZoomLevel) return 11;
     for (int i = levels.length - 1; i >= 0; i--) {
       if (levels[i] <= _currentZoom) return i + 1;
     }
